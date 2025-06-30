@@ -15,8 +15,8 @@ from brainrender.actors import Points
 scene = Scene(title="Silicon Probe Visualization")
 
 # Visualise the probe target regions
-cp = scene.add_brain_region("CP", alpha=0.15)
-rsp = scene.add_brain_region("RSP", alpha=0.15)
+MEC = scene.add_brain_region("MEC", alpha=0.15)
+
 # render
 scene.render()
 print("")

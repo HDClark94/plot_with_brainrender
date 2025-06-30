@@ -213,18 +213,20 @@ def get_annotation_colors(cluster_annotations):
 def main():
     settings.SHADER_STYLE = "cartoon"  # other options: metallic, plastic, shiny, glossy, cartoon, default
     settings.ROOT_ALPHA = .1   # this sets how transparent the brain outline is
-    settings.SHOW_AXES = False  # shows/hides the ABA CCF axes from the image
+    settings.SHOW_AXES = True  # shows/hides the ABA CCF axes from the image
     scene = Scene(root=False, inset=False, atlas_name="allen_mouse_10um")  # makes a scene instance
     root = scene.add_brain_region("root", alpha=0.05, color="grey", hemisphere="both", silhouette=True)  # this is the brain outline
-    mec = scene.add_brain_region("ENTm", alpha=0.25, color=(106, 202,71), hemisphere="both", silhouette=True)
-    par = scene.add_brain_region("PAR", alpha=0.25, color=(45, 160,23), hemisphere="both", silhouette=True)
+    mec = scene.add_brain_region("ENTm1", alpha=0.25, color=(106, 202,71), hemisphere="both", silhouette=True)
+    #par = scene.add_brain_region("PAR", alpha=0.25, color=(45, 160,23), hemisphere="both", silhouette=True)
 
     mouse_cluster_annotations_df = pd.DataFrame()
     # load mouse specific probe and cluster spatial locations
-    mouse_ids = ["M20", "M21", "M22", "M25", "M26", "M27", "M28", "M29"]
-    mouse_ids = ['M25']
+        
+    mouse_ids =    ["M27"]
 
+    #mouse_ids = ['M29']
     for Mouse in mouse_ids:
+        print(Mouse)
         mouse=int(Mouse.split('M')[1])
         data_paths = [f"/Users/harryclark/Documents/brainrender/probe_data/{Mouse}_probe_locations_{a}.mat" for a in [1,2,3,4]]
         shank_offsets_SC = pd.read_csv('/Users/harryclark/Documents/brainrender/probe_data/shank_offsets.csv')
@@ -243,13 +245,12 @@ def main():
         # plot probes 
         for i in range(len(adjusted_probe_locs_CCF)):
             actor = Cylinder2(adjusted_probe_locs_CCF[i, :, 0], 
-                            adjusted_probe_locs_CCF[i, :, 1], scene.root, color='grey', radius=20)
+                            adjusted_probe_locs_CCF[i, :, 1], scene.root, color='grey', radius=20, alpha=0.4)
             scene.add(actor)
 
         # get brain coords for point (0,0) on shank 0, ignore shank translations for now...
         brain_coord_SC, brain_coord_CCF = brain_coord_from_xy(0,0, adjusted_probe_locs_SC, shank_id=0)
         print(f"Point (0,0) on the probe maps to {brain_coord_CCF} in the CCF format.")
-        scene.add(Points(np.reshape(brain_coord_CCF, (1,3)), radius=50, colors="blue"))
 
         # plot clusters along the probes and create an annotation
         cluster_coord_SCs_x = []
@@ -264,32 +265,30 @@ def main():
             shank_id = int(cluster['shank_id'])
             x_pos = cluster['unit_location_x']
             y_pos = cluster['unit_location_y']
-
+            x_pos = np.random.normal(0,10,1)
             if y_pos<0:
                 print('theres some points below y=0, I will set it to 0 for debugging purposes')
                 y_pos=0
 
-            cluster_coord_SC, cluster_coord_CCF  = brain_coord_from_xy(0, y_pos, adjusted_probe_locs_SC, shank_id=shank_id)
+            cluster_coord_SC, cluster_coord_CCF  = brain_coord_from_xy(x_pos, y_pos, adjusted_probe_locs_SC, shank_id=shank_id)
 
             # use the CCF coordinates, get an index and look up the annotation in the brainrender allen_brain_10um volume
             z_CCF,y_CCF,x_CCF = np.round(cluster_coord_CCF/10).astype(int)
             cluster_annotation_index = annotations_set[z_CCF,y_CCF,x_CCF]
             if len(structure_set[structure_set['id'] == cluster_annotation_index]) ==1:
                 cluster_annotation = structure_set[structure_set['id'] == cluster_annotation_index]['acronym'].iloc[0]
-                cluster_annotations.append(cluster_annotation)
-            else: # assume out of brain?
-                cluster_annotations.append('root')
-
-            z_CCF,y_CCF,x_CCF = cluster_coord_CCF # np.round(cluster_coord_CCF/10).astype(int) for reference indices
-            z_SC, y_SC, x_SC = cluster_coord_SC
-            cluster_coord_CCFs.append(cluster_coord_CCF)
-
-            cluster_coord_SCs_z.append(z_SC)
-            cluster_coord_SCs_y.append(y_SC)
-            cluster_coord_SCs_x.append(x_SC)
-            cluster_coord_CCFs_z.append(z_CCF)
-            cluster_coord_CCFs_y.append(y_CCF)
-            cluster_coord_CCFs_x.append(x_CCF)
+                if cluster_annotation == 'ENTm1':
+                    cluster_annotations.append(cluster_annotation)
+                    print('ENTm1')
+                    z_CCF,y_CCF,x_CCF = cluster_coord_CCF # np.round(cluster_coord_CCF/10).astype(int) for reference indices
+                    z_SC, y_SC, x_SC = cluster_coord_SC
+                    cluster_coord_CCFs.append(cluster_coord_CCF)
+                    cluster_coord_SCs_z.append(z_SC)
+                    cluster_coord_SCs_y.append(y_SC)
+                    cluster_coord_SCs_x.append(x_SC)
+                    cluster_coord_CCFs_z.append(z_CCF)
+                    cluster_coord_CCFs_y.append(y_CCF)
+                    cluster_coord_CCFs_x.append(x_CCF)
 
         cluster_coord_SCs_z = np.array(cluster_coord_SCs_z)
         cluster_coord_SCs_y = np.array(cluster_coord_SCs_y)
@@ -298,50 +297,15 @@ def main():
         cluster_coord_CCFs_y = np.array(cluster_coord_CCFs_y)
         cluster_coord_CCFs_x = np.array(cluster_coord_CCFs_x)
         cluster_annotations = np.array(cluster_annotations)
-        cluster_annotation_colors = get_annotation_colors(cluster_annotations)
 
-        clusters_df['Mouse'] = Mouse
-        clusters_df['mouse'] = mouse
-        clusters_df['coord_SCs_z'] = cluster_coord_SCs_z
-        clusters_df['coord_SCs_y'] = cluster_coord_SCs_y
-        clusters_df['coord_SCs_x'] = cluster_coord_SCs_x
-        clusters_df['coord_CCFs_z'] = cluster_coord_CCFs_z
-        clusters_df['coord_CCFs_y'] = cluster_coord_CCFs_y
-        clusters_df['coord_CCFs_x'] = cluster_coord_CCFs_x
+        print(np.unique(cluster_annotations))
 
-        clusters_df['brain_region'] = cluster_annotations
-        mouse_cluster_annotations_df = pd.concat([mouse_cluster_annotations_df, clusters_df], ignore_index=True)
-
-        scene.add(Points(np.reshape(cluster_coord_CCFs, (len(cluster_coord_CCFs),3)), radius=50, colors=cluster_annotation_colors, alpha=0.4))
-
-    annotations = np.array(mouse_cluster_annotations_df['brain_region']).tolist()
-    # Ensure all elements are strings
-    annotations = [str(annotation) for annotation in annotations]
-    # Count the frequency of each string
-    string_counts = Counter(annotations)
-    # Calculate the percentage of each string
-    total_annotations = len(annotations)
-    string_percentages = {string: (count / total_annotations) * 100 for string, count in string_counts.items()}
-    
-    print("Counts and Percentage of each string:")
-    for string, count in string_counts.items():
-        percentage = string_percentages[string]
-        print(f"{string}: {count} ({percentage:.2f}%)")
-
-    for substring in ['ENT','VIS','PRE','HPF','SUB','PAR','SIM','arb','PFL']:
-        substring_count = sum(1 for annotation in annotations if substring in annotation)
-        substring_percentage = (substring_count / total_annotations) * 100
-        print(f"\nCount and Percentage of strings containing '{substring}': {substring_count} ({substring_percentage:.2f}%)")
-        
+        scene.add(Points(np.reshape(cluster_coord_CCFs, (len(cluster_coord_CCFs),3)), radius=50, colors='green', alpha=0.4))
     # render
     scene.render(zoom=1.2)
+    scene.export("/Users/harryclark/Downloads/M27_MECl1.html")
+
     print("")
-
-    # save points and render
-    save_annotations=True
-    if save_annotations:
-        mouse_cluster_annotations_df.to_csv('/Users/harryclark/Documents/brainrender/probe_data/cluster_annotations.csv')
-
 
 
 if __name__ == '__main__':

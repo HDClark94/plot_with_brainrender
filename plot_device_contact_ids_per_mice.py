@@ -6,9 +6,11 @@ from brainrender.actors import Cylinder
 from brainrender import Scene
 from brainrender import settings
 from brainrender.actors import Points
-from tifffile import imread
 from collections import Counter
+from brainrender import VideoMaker
 
+
+from tifffile import imread
 reference_set = imread('/Users/harryclark/.brainglobe/allen_mouse_10um_v1.2/reference.tiff')
 annotations_set = imread('/Users/harryclark/.brainglobe/allen_mouse_10um_v1.2/annotation.tiff')
 structure_set = pd.read_csv('/Users/harryclark/.brainglobe/allen_mouse_10um_v1.2/structures.csv')
@@ -65,7 +67,6 @@ def read_borders_table(border_tables_path):
     return borders_table
 
 def adjust_probe_locs(probe_locs):
-
     adjusted_probe_locs = np.array(
         [[probe_locs[0,0], probe_locs[0,1]], 
         [probe_locs[2,0], probe_locs[2,1]],
@@ -214,23 +215,30 @@ def main():
     settings.SHADER_STYLE = "cartoon"  # other options: metallic, plastic, shiny, glossy, cartoon, default
     settings.ROOT_ALPHA = .1   # this sets how transparent the brain outline is
     settings.SHOW_AXES = False  # shows/hides the ABA CCF axes from the image
-    scene = Scene(root=False, inset=False, atlas_name="allen_mouse_10um")  # makes a scene instance
-    root = scene.add_brain_region("root", alpha=0.05, color="grey", hemisphere="both", silhouette=True)  # this is the brain outline
-    mec = scene.add_brain_region("ENTm", alpha=0.25, color=(106, 202,71), hemisphere="both", silhouette=True)
-    par = scene.add_brain_region("PAR", alpha=0.25, color=(45, 160,23), hemisphere="both", silhouette=True)
-
+    
     mouse_cluster_annotations_df = pd.DataFrame()
     # load mouse specific probe and cluster spatial locations
-    mouse_ids = ["M20", "M21", "M22", "M25", "M26", "M27", "M28", "M29"]
-    mouse_ids = ['M25']
+    mouse_ids =    ["M20",     "M21",   "M22",  "M25",     "M26", "M27",  "M28",  "M29"]
+    mouse_ids = ["M25"]
 
     for Mouse in mouse_ids:
+        print(Mouse)
         mouse=int(Mouse.split('M')[1])
+
+        scene = Scene(root=False, inset=False, atlas_name="allen_mouse_10um")  # makes a scene instance
+        root = scene.add_brain_region("root", alpha=0.05, color="grey", hemisphere="both", silhouette=True)  # this is the brain outline
+        mec = scene.add_brain_region("ENTm", alpha=0.25, color=(106, 202,71), hemisphere="both", silhouette=True)
+        par = scene.add_brain_region("PAR", alpha=0.25, color=(45, 160,23), hemisphere="both", silhouette=True)
+
+
         data_paths = [f"/Users/harryclark/Documents/brainrender/probe_data/{Mouse}_probe_locations_{a}.mat" for a in [1,2,3,4]]
         shank_offsets_SC = pd.read_csv('/Users/harryclark/Documents/brainrender/probe_data/shank_offsets.csv')
-        clusters_df = pd.read_csv(f"/Users/harryclark/Documents/brainrender/probe_data/{Mouse}_clusters.csv")
-        clusters_df = pd.read_csv(f'/Users/harryclark/Documents/brainrender/probe_data/extremum_channel_locations_kilosort4_0.csv')
+        clusters_df = pd.read_csv(f"/Users/harryclark/Documents/brainrender/probe_data/device_contact_id_to_channel_location.csv")
         clusters_df = clusters_df[clusters_df['mouse'] == mouse]
+        if 'y' in list(clusters_df):
+            clusters_df = clusters_df.rename(columns={'y': 'unit_location_y'})
+        if 'x' in list(clusters_df):
+            clusters_df = clusters_df.rename(columns={'x': 'unit_location_x'})
         shank_offsets_SC = shank_offsets_SC[shank_offsets_SC['mouse'] == mouse]
         clusters_df = reconstruct_shank_id(clusters_df, mouse)
         probes_locs = [read_probe_mat(data_path) for data_path in data_paths]
@@ -250,6 +258,16 @@ def main():
         brain_coord_SC, brain_coord_CCF = brain_coord_from_xy(0,0, adjusted_probe_locs_SC, shank_id=0)
         print(f"Point (0,0) on the probe maps to {brain_coord_CCF} in the CCF format.")
         scene.add(Points(np.reshape(brain_coord_CCF, (1,3)), radius=50, colors="blue"))
+        brain_coord_SC, brain_coord_CCF = brain_coord_from_xy(0,500, adjusted_probe_locs_SC, shank_id=0)
+        scene.add(Points(np.reshape(brain_coord_CCF, (1,3)), radius=50, colors="blue"))
+        brain_coord_SC, brain_coord_CCF = brain_coord_from_xy(0,1000, adjusted_probe_locs_SC, shank_id=0)
+        scene.add(Points(np.reshape(brain_coord_CCF, (1,3)), radius=50, colors="blue"))
+        brain_coord_SC, brain_coord_CCF = brain_coord_from_xy(0,1500, adjusted_probe_locs_SC, shank_id=0)
+        scene.add(Points(np.reshape(brain_coord_CCF, (1,3)), radius=50, colors="blue"))
+        brain_coord_SC, brain_coord_CCF = brain_coord_from_xy(0,2000, adjusted_probe_locs_SC, shank_id=0)
+        scene.add(Points(np.reshape(brain_coord_CCF, (1,3)), radius=50, colors="blue"))
+        brain_coord_SC, brain_coord_CCF = brain_coord_from_xy(0,2500, adjusted_probe_locs_SC, shank_id=0)
+        scene.add(Points(np.reshape(brain_coord_CCF, (1,3)), radius=50, colors="blue"))
 
         # plot clusters along the probes and create an annotation
         cluster_coord_SCs_x = []
@@ -259,6 +277,7 @@ def main():
         cluster_coord_CCFs_y = []
         cluster_coord_CCFs_z = []
         cluster_annotations = []
+
         cluster_coord_CCFs = []
         for index, cluster in clusters_df.iterrows():
             shank_id = int(cluster['shank_id'])
@@ -269,7 +288,7 @@ def main():
                 print('theres some points below y=0, I will set it to 0 for debugging purposes')
                 y_pos=0
 
-            cluster_coord_SC, cluster_coord_CCF  = brain_coord_from_xy(0, y_pos, adjusted_probe_locs_SC, shank_id=shank_id)
+            cluster_coord_SC, cluster_coord_CCF = brain_coord_from_xy(0, y_pos, adjusted_probe_locs_SC, shank_id=shank_id)
 
             # use the CCF coordinates, get an index and look up the annotation in the brainrender allen_brain_10um volume
             z_CCF,y_CCF,x_CCF = np.round(cluster_coord_CCF/10).astype(int)
@@ -281,7 +300,7 @@ def main():
                 cluster_annotations.append('root')
 
             z_CCF,y_CCF,x_CCF = cluster_coord_CCF # np.round(cluster_coord_CCF/10).astype(int) for reference indices
-            z_SC, y_SC, x_SC = cluster_coord_SC
+            z_SC,y_SC,x_SC = cluster_coord_SC
             cluster_coord_CCFs.append(cluster_coord_CCF)
 
             cluster_coord_SCs_z.append(z_SC)
@@ -299,7 +318,7 @@ def main():
         cluster_coord_CCFs_x = np.array(cluster_coord_CCFs_x)
         cluster_annotations = np.array(cluster_annotations)
         cluster_annotation_colors = get_annotation_colors(cluster_annotations)
-
+        
         clusters_df['Mouse'] = Mouse
         clusters_df['mouse'] = mouse
         clusters_df['coord_SCs_z'] = cluster_coord_SCs_z
@@ -308,41 +327,53 @@ def main():
         clusters_df['coord_CCFs_z'] = cluster_coord_CCFs_z
         clusters_df['coord_CCFs_y'] = cluster_coord_CCFs_y
         clusters_df['coord_CCFs_x'] = cluster_coord_CCFs_x
-
         clusters_df['brain_region'] = cluster_annotations
         mouse_cluster_annotations_df = pd.concat([mouse_cluster_annotations_df, clusters_df], ignore_index=True)
 
         scene.add(Points(np.reshape(cluster_coord_CCFs, (len(cluster_coord_CCFs),3)), radius=50, colors=cluster_annotation_colors, alpha=0.4))
 
-    annotations = np.array(mouse_cluster_annotations_df['brain_region']).tolist()
-    # Ensure all elements are strings
-    annotations = [str(annotation) for annotation in annotations]
-    # Count the frequency of each string
-    string_counts = Counter(annotations)
-    # Calculate the percentage of each string
-    total_annotations = len(annotations)
-    string_percentages = {string: (count / total_annotations) * 100 for string, count in string_counts.items()}
-    
-    print("Counts and Percentage of each string:")
-    for string, count in string_counts.items():
-        percentage = string_percentages[string]
-        print(f"{string}: {count} ({percentage:.2f}%)")
-
-    for substring in ['ENT','VIS','PRE','HPF','SUB','PAR','SIM','arb','PFL']:
-        substring_count = sum(1 for annotation in annotations if substring in annotation)
-        substring_percentage = (substring_count / total_annotations) * 100
-        print(f"\nCount and Percentage of strings containing '{substring}': {substring_count} ({substring_percentage:.2f}%)")
+        annotations = np.array(mouse_cluster_annotations_df['brain_region']).tolist()
+        # Ensure all elements are strings
+        annotations = [str(annotation) for annotation in annotations]
+        # Count the frequency of each string
+        string_counts = Counter(annotations)
+        # Calculate the percentage of each string
+        total_annotations = len(annotations)
+        string_percentages = {string: (count / total_annotations) * 100 for string, count in string_counts.items()}
         
-    # render
-    scene.render(zoom=1.2)
+        print("Counts and Percentage of each string:")
+        for string, count in string_counts.items():
+            percentage = string_percentages[string]
+            print(f"{string}: {count} ({percentage:.2f}%)")
+
+        for substring in ['ENT','VIS','PRE','HPF','SUB','PAR','SIM','arb','PFL']:
+            substring_count = sum(1 for annotation in annotations if substring in annotation)
+            substring_percentage = (substring_count / total_annotations) * 100
+            print(f"\nCount and Percentage of strings containing '{substring}': {substring_count} ({substring_percentage:.2f}%)")
+            
+        # render
+        scene.render(zoom=1.2)
+        print("")
     print("")
 
-    # save points and render
-    save_annotations=True
-    if save_annotations:
-        mouse_cluster_annotations_df.to_csv('/Users/harryclark/Documents/brainrender/probe_data/cluster_annotations.csv')
+    """
+    # Make a custom make frame function
+    def make_frame(scene, frame_number, *args, **kwargs):
+        alpha = scene.root.alpha()
+        if alpha < 0.5:
+            scene.root.alpha(1)
+        else:
+            scene.root.alpha(0.2)
 
-
+    # Create an instance of video maker
+    vm = VideoMaker(scene, "/Users/harryclark/Documents/brainrender/images", name="/Users/harryclark/Documents/brainrender/images/vid1", fmt="mp4")
+    # make a video with the custom make frame function
+    # this just rotates the scene
+    render_dict = {"zoom": 2,
+                "camera": "sagittal"}
+    vm.make_video(elevation=0, roll=0, azimuth=0.5, duration=5, fps=120, render_kwargs=render_dict)
+    print("hello")
+    """
 
 if __name__ == '__main__':
     main()

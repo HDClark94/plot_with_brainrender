@@ -13,10 +13,8 @@ reference_set = imread('/Users/harryclark/.brainglobe/allen_mouse_10um_v1.2/refe
 annotations_set = imread('/Users/harryclark/.brainglobe/allen_mouse_10um_v1.2/annotation.tiff')
 structure_set = pd.read_csv('/Users/harryclark/.brainglobe/allen_mouse_10um_v1.2/structures.csv')
 
-print(structure_set[structure_set['acronym']=='SIM'])
-print(structure_set[structure_set['acronym']=='PFL'])
-print(structure_set[structure_set['acronym']=='arb'])
-
+for i in range(len(structure_set)):
+    print(str(structure_set.iloc[i]['acronym']) + " " + str(structure_set.iloc[i]['name']))
 
 class Cylinder2(Cylinder):
     def __init__(self, pos_from, pos_to, root, color='powderblue', alpha=1, radius=350):
@@ -56,145 +54,6 @@ def CCFToStereo(CCF = np.array([1,1,1]), angle = 0.0873):
     return(stretch)
 
 
-
-def plot_at_00(scene, probe_locations_path_list, color='red'):
-    prob_locs_list = []
-    for probe_locations_path in probe_locations_path_list:
-        probe_locs = read_probe_mat(probe_locations_path)
-        prob_locs = np.array([[probe_locs[0,0], probe_locs[0,1]], 
-                              [probe_locs[2,0], probe_locs[2,1]],
-                              [probe_locs[1,0], probe_locs[1,1]]])*10
-        prob_locs_list.append(prob_locs)
-    prob_locs_list = np.array(prob_locs_list)
-
-    # adjust all probes to deepest probe depth
-    max_y = np.max(prob_locs_list[:,1,1])
-    for i in range(len(prob_locs_list)):
-        prob_locs_list[i][1,1] = max_y
-        prob_locs = prob_locs_list[i]
-
-        # correct for the probe being placed on the left side of the brain by mistake
-        prob_locs_SC = prob_locs.copy()
-        prob_locs_CCF = prob_locs.copy()
-        prob_locs_SC[:,0] = CCFToStereo(prob_locs[:,0])
-        prob_locs_SC[:,1] = CCFToStereo(prob_locs[:,1])
-        if prob_locs_SC[:,0][2] > 0:
-            prob_locs_SC[:,0][2]*=-1
-            prob_locs_SC[:,1][2]*=-1
-            prob_locs_CCF[:,0] = StereoToCCF(prob_locs_SC[:,0])
-            prob_locs_CCF[:,1] = StereoToCCF(prob_locs_SC[:,1])
-        else:
-            continue
-        prob_locs_list[i] = prob_locs_CCF
-
-    # plot a cluster if it was found at 0, 0 in probe space
-    y_pos = 0
-    x_pos = 0
-    shank_id = 0
-
-    # get probe locations using shank id
-    prob_locs_CCF = prob_locs_list[shank_id]
-    
-    # translate to SC
-    prob_locs_SC = prob_locs_CCF.copy()
-    prob_locs_SC[:,0] = CCFToStereo(prob_locs_CCF[:,0])
-    prob_locs_SC[:,1] = CCFToStereo(prob_locs_CCF[:,1])
-
-    # Calculate the direction vector
-    direction_vector = prob_locs_SC[:,0] - prob_locs_SC[:,1]
-    # Calculate the unit vector
-    unit_vector = direction_vector / np.linalg.norm(direction_vector)
-    # Calculate the position
-    cluster_pos_SC = prob_locs_SC[:,1] + (y_pos * unit_vector)
-    cluster_pos_SC[2] += x_pos
-    cluster_pos_CCF = StereoToCCF(cluster_pos_SC)
-    # add the estimated cluster location in the CCF brain
-    scene.add(Points(np.reshape(cluster_pos_CCF, (1,3)), radius=30, colors=color))
-    return scene
-
-def add_probe(scene, probe_locations_path_list, color=None):
-    cmap = ['darkgreen', 'green', 'limegreen', 'lime']
-
-    prob_locs_list = []
-    for probe_locations_path in probe_locations_path_list:
-        probe_locs = read_probe_mat(probe_locations_path)
-        radius=20
-        prob_locs = np.array([[probe_locs[0,0], probe_locs[0,1]], 
-                              [probe_locs[2,0], probe_locs[2,1]],
-                              [probe_locs[1,0], probe_locs[1,1]]])*10
-        prob_locs_list.append(prob_locs)
-    prob_locs_list = np.array(prob_locs_list)
-    # adjust all probes to deepest probe depth and plot probes
-    max_y = np.max(prob_locs_list[:,1,1])
-    for i, prob_locs in enumerate(prob_locs_list):
-        prob_locs[1,1] = max_y
-        # correct for the probe being place on the left side of the brain by mistake
-        prob_locs_SC = prob_locs.copy()
-        prob_locs_CCF = prob_locs.copy()
-        prob_locs_SC[:,0] = CCFToStereo(prob_locs[:,0])
-        prob_locs_SC[:,1] = CCFToStereo(prob_locs[:,1])
-        if prob_locs_SC[:,0][2] > 0:
-            prob_locs_SC[:,0][2]*=-1
-            prob_locs_SC[:,1][2]*=-1
-            prob_locs_CCF[:,0] = StereoToCCF(prob_locs_SC[:,0])
-            prob_locs_CCF[:,1] = StereoToCCF(prob_locs_SC[:,1])
-        else:
-            prob_locs_CCF[:,0] = StereoToCCF(prob_locs_SC[:,0])
-            prob_locs_CCF[:,1] = StereoToCCF(prob_locs_SC[:,1])
-        #original location before correction
-        #actor = Cylinder2(prob_locs[:,0], prob_locs[:,1], scene.root, color=color, radius=radius)
-        #scene.add(actor)
-        if color is None:
-            c = cmap[i]
-        else:
-            c = color
-        actor = Cylinder2(prob_locs_CCF[:,0], prob_locs_CCF[:,1], scene.root, color=c, radius=radius)
-        scene.add(actor)
-    return scene
-
-
-def add_probe_SHARPTrack(scene, probe_locations_path_list, color=None):
-    cmap = ['darkgreen', 'green', 'limegreen', 'lime']
-
-    prob_locs_list = []
-    for probe_locations_path in probe_locations_path_list:
-        probe_locs = read_probe_mat(probe_locations_path)
-        radius=20
-        prob_locs = np.array([[probe_locs[0,0], probe_locs[0,1]], 
-                              [probe_locs[2,0], probe_locs[2,1]],
-                              [probe_locs[1,0], probe_locs[1,1]]])*10
-        prob_locs_list.append(prob_locs)
-    prob_locs_list = np.array(prob_locs_list)
-    # adjust all probes to deepest probe depth and plot probes
-    max_y = np.max(prob_locs_list[:,1,1])
-    for i, prob_locs in enumerate(prob_locs_list):
-        prob_locs[1,1] = max_y
-        # correct for the probe being place on the left side of the brain by mistake
-        prob_locs_SC = prob_locs.copy()
-        prob_locs_CCF = prob_locs.copy()
-        prob_locs_SC[:,0] = CCFToStereo(prob_locs[:,0])
-        prob_locs_SC[:,1] = CCFToStereo(prob_locs[:,1])
-        if prob_locs_SC[:,0][2] > 0:
-            prob_locs_SC[:,0][2]*=-1
-            prob_locs_SC[:,1][2]*=-1
-            prob_locs_CCF[:,0] = StereoToCCF(prob_locs_SC[:,0])
-            prob_locs_CCF[:,1] = StereoToCCF(prob_locs_SC[:,1])
-        else:
-            prob_locs_CCF[:,0] = StereoToCCF(prob_locs_SC[:,0])
-            prob_locs_CCF[:,1] = StereoToCCF(prob_locs_SC[:,1])
-        #original location before correction
-        #actor = Cylinder2(prob_locs[:,0], prob_locs[:,1], scene.root, color=color, radius=radius)
-        #scene.add(actor)
-        if color is None:
-            c = cmap[i]
-        else:
-            c = color
-        actor = Cylinder2(prob_locs_CCF[:,0], prob_locs_CCF[:,1], scene.root, color=c, radius=radius)
-        scene.add(actor)
-    return scene
-
-
-
 def read_probe_mat(probe_locs_path):
     mat = scipy.io.loadmat(probe_locs_path)
     probe_locs = np.array(mat['probe_locs'])
@@ -206,21 +65,13 @@ def read_borders_table(border_tables_path):
     return borders_table
 
 def adjust_probe_locs(probe_locs):
-
     adjusted_probe_locs = np.array(
         [[probe_locs[0,0], probe_locs[0,1]], 
         [probe_locs[2,0], probe_locs[2,1]],
         [probe_locs[1,0], probe_locs[1,1]]]
     )*10
-    
     return adjusted_probe_locs
     
-
-def adjust_to_deepest(probe_locs_list):
-    # adjust all probes to deepest probe depth and plot probes
-    max_y = np.max(probe_locs_list[:,1,1])
-    probe_locs_list[:,1,1] = max_y
-    return probe_locs_list
 
 def adjust_to_shank_offsets(probe_locs_list_SC, shank_offsets):
     # assumes shank offsets are a df with columns shank and y offset
@@ -326,7 +177,7 @@ def brain_coord_from_xy(x_pos, y_pos, probe_locs_list_SC, shank_id):
     brain_coord_CCF = StereoToCCF(brain_coord_SC)
     z_CCF,y_CCF,x_CCF = np.round(brain_coord_CCF/10).astype(int)
 
-    return brain_coord_CCF
+    return brain_coord_SC, brain_coord_CCF
 
 
 def euclidean_distance(point1, point2):
@@ -369,13 +220,12 @@ def main():
 
     mouse_cluster_annotations_df = pd.DataFrame()
     # load mouse specific probe and cluster spatial locations
-    mouse_ids =    ["M20",     "M21",   "M22",  "M25",     "M26", "M27",  "M28",  "M29"]
+    mouse_ids = ["M20", "M21", "M22", "M25", "M26", "M27", "M28", "M29"]
     for Mouse in mouse_ids:
         mouse=int(Mouse.split('M')[1])
         data_paths = [f"/Users/harryclark/Documents/brainrender/probe_data/{Mouse}_probe_locations_{a}.mat" for a in [1,2,3,4]]
         shank_offsets_SC = pd.read_csv('/Users/harryclark/Documents/brainrender/probe_data/shank_offsets.csv')
-        clusters_df = pd.read_csv(f"/Users/harryclark/Documents/brainrender/probe_data/{Mouse}_clusters.csv")
-        clusters_df = pd.read_csv(f"/Volumes/cmvm/sbms/groups/CDBS_SIDB_storage/NolanLab/ActiveProjects/Chris/Cohort12/derivatives/labels/device_contact_id_to_channel_location.csv")
+        clusters_df = pd.read_csv(f"/Users/harryclark/Documents/brainrender/probe_data/device_contact_id_to_channel_location.csv")
         clusters_df = clusters_df[clusters_df['mouse'] == mouse]
         if 'y' in list(clusters_df):
             clusters_df = clusters_df.rename(columns={'y': 'unit_location_y'})
@@ -387,7 +237,6 @@ def main():
         
         # do adjustments
         adjusted_probes_locs_CCF = np.array([adjust_probe_locs(probe_locs) for probe_locs in probes_locs])
-        #adjusted_probes_locs_CCF = adjust_to_deepest(adjusted_probes_locs_CCF)
         adjusted_probe_locs_SC, adjusted_probe_locs_CCF = correct_for_left_side(adjusted_probes_locs_CCF)
         adjusted_probe_locs_SC, adjusted_probe_locs_CCF = adjust_to_shank_offsets(adjusted_probe_locs_SC, shank_offsets_SC)
         
@@ -398,7 +247,7 @@ def main():
             scene.add(actor)
 
         # get brain coords for point (0,0) on shank 0, ignore shank translations for now...
-        brain_coord_CCF = brain_coord_from_xy(0,0, adjusted_probe_locs_SC, shank_id=0)
+        brain_coord_SC, brain_coord_CCF = brain_coord_from_xy(0,0, adjusted_probe_locs_SC, shank_id=0)
         print(f"Point (0,0) on the probe maps to {brain_coord_CCF} in the CCF format.")
         scene.add(Points(np.reshape(brain_coord_CCF, (1,3)), radius=50, colors="blue"))
 
@@ -421,9 +270,7 @@ def main():
                 print('theres some points below y=0, I will set it to 0 for debugging purposes')
                 y_pos=0
 
-            cluster_coord_CCF = brain_coord_from_xy(0, y_pos, adjusted_probe_locs_SC, shank_id=shank_id)
-            #TODO make cluster_coord_SC from brain_coord_from_xy()
-            cluster_coord_SC = (0,0,0)
+            cluster_coord_SC, cluster_coord_CCF = brain_coord_from_xy(0, y_pos, adjusted_probe_locs_SC, shank_id=shank_id)
 
             # use the CCF coordinates, get an index and look up the annotation in the brainrender allen_brain_10um volume
             z_CCF,y_CCF,x_CCF = np.round(cluster_coord_CCF/10).astype(int)
@@ -434,7 +281,7 @@ def main():
             else: # assume out of brain?
                 cluster_annotations.append('root')
 
-            z_CCF,y_CCF,x_CCF = np.round(cluster_coord_CCF/10).astype(int) # np.round(cluster_coord_CCF/10).astype(int) for reference indices
+            z_CCF,y_CCF,x_CCF = cluster_coord_CCF # np.round(cluster_coord_CCF/10).astype(int) for reference indices
             z_SC,y_SC,x_SC = cluster_coord_SC
             cluster_coord_CCFs.append(cluster_coord_CCF)
 
@@ -453,7 +300,9 @@ def main():
         cluster_coord_CCFs_x = np.array(cluster_coord_CCFs_x)
         cluster_annotations = np.array(cluster_annotations)
         cluster_annotation_colors = get_annotation_colors(cluster_annotations)
-
+        
+        clusters_df['Mouse'] = Mouse
+        clusters_df['mouse'] = mouse
         clusters_df['coord_SCs_z'] = cluster_coord_SCs_z
         clusters_df['coord_SCs_y'] = cluster_coord_SCs_y
         clusters_df['coord_SCs_x'] = cluster_coord_SCs_x

@@ -221,7 +221,7 @@ def main():
     mouse_cluster_annotations_df = pd.DataFrame()
     # load mouse specific probe and cluster spatial locations
     mouse_ids = ["M20", "M21", "M22", "M25", "M26", "M27", "M28", "M29"]
-    mouse_ids = ['M25']
+    #mouse_ids = ['M25']
     for Mouse in mouse_ids:
         mouse=int(Mouse.split('M')[1])
         data_paths = [f"/Users/harryclark/Documents/brainrender/probe_data/{Mouse}_probe_locations_{a}.mat" for a in [1,2,3,4]]
@@ -250,7 +250,7 @@ def main():
         # get brain coords for point (0,0) on shank 0, ignore shank translations for now...
         brain_coord_SC, brain_coord_CCF = brain_coord_from_xy(0,0, adjusted_probe_locs_SC, shank_id=0)
         print(f"Point (0,0) on the probe maps to {brain_coord_CCF} in the CCF format.")
-        scene.add(Points(np.reshape(brain_coord_CCF, (1,3)), radius=50, colors="blue"))
+        #scene.add(Points(np.reshape(brain_coord_CCF, (1,3)), radius=50, colors="blue"))
 
         # plot clusters along the probes and create an annotation
         cluster_coord_SCs_x = []
